@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pitch Count Value Model</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #161920;
+    --surface2: #1e2229;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #8b909e;
+    --dim: #555a68;
+    --accent: #4f9cf9;
+    --accent2: #2de0a7;
+    --warn: #f5a623;
+    --danger: #f96b6b;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --serif: 'Libre Baskerville', serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 40px 24px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header-left h1 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .header-left p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .header-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent2);
+    background: rgba(45,224,167,0.08);
+    border: 1px solid rgba(45,224,167,0.2);
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: calc(100vh - 85px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 85px);
+    overflow-y: auto;
+  }
+  .sidebar-section {
+    margin-bottom: 28px;
+  }
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 12px;
+  }
+
+  /* ERA inputs */
+  .era-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .era-field label {
+    font-size: 11px;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .era-field input[type="number"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+  }
+  .era-field input[type="number"]::-webkit-inner-spin-button,
+  .era-field input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .era-field input[type="number"]:focus { border-color: var(--accent); }
+
+  /* Sliders */
+  .slider-group { margin-bottom: 14px; }
+  .slider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .slider-row span:first-child { font-size: 12px; color: var(--muted); }
+  .slider-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+  input[type="range"] {
+    width: 100%;
+    appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { background: #7ab8ff; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  .series-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+  .toggle-track {
+    width: 36px; height: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-track.on { background: rgba(79,156,249,0.3); border-color: var(--accent); }
+  .toggle-thumb {
+    position: absolute;
+    width: 14px; height: 14px;
+    background: var(--muted);
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle-track.on .toggle-thumb { transform: translateX(16px); background: var(--accent); }
+  .series-toggle span { font-size: 12px; color: var(--muted); }
+  .series-toggle.on span { color: var(--accent); }
+
+  /* Nav tabs */
+  .nav-tabs { display: flex; flex-direction: column; gap: 2px; }
+  .nav-tab {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    text-align: left;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-tab:hover { background: var(--surface2); color: var(--text); }
+  .nav-tab.active { background: var(--surface2); color: var(--accent); }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.5; flex-shrink: 0; }
+  .nav-tab.active .nav-dot { opacity: 1; }
+
+  /* ── MAIN CONTENT ── */
+  .main {
+    padding: 28px 36px;
+    overflow-y: auto;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .panel-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .panel-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  /* Metric cards */
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.15s;
+  }
+  .metric:hover { border-color: var(--border2); }
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .metric-value.accent { color: var(--accent); }
+  .metric-value.green { color: var(--accent2); }
+  .metric-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
+
+  /* Chart containers */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .chart-title {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--muted);
+    margin-bottom: 16px;
+    letter-spacing: 0.04em;
+  }
+  .chart-inner { position: relative; width: 100%; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-dash { width: 16px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+
+  /* PA Table */
+  .pa-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    text-align: center;
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  th.left { text-align: left; }
+  td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+  td.left { text-align: left; color: var(--muted); font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .cell-pos { color: var(--accent2); }
+  .cell-high { color: var(--accent); font-weight: 500; }
+  .cell-dim { color: var(--dim); }
+
+  /* Heat cells */
+  .h1 { background: rgba(45,224,167,0.06); }
+  .h2 { background: rgba(45,224,167,0.12); }
+  .h3 { background: rgba(45,224,167,0.20); }
+  .h4 { background: rgba(45,224,167,0.30); }
+  .h5 { background: rgba(45,224,167,0.42); }
+
+  /* Calculator result */
+  .calc-result {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
+  }
+  .calc-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .calc-field-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-family: var(--mono); }
+  .calc-field-value { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+  .calc-field-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .calc-note { font-size: 11px; color: var(--muted); line-height: 1.6; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  /* Outcome compare */
+  .outcome-row {
+    display: grid;
+    grid-template-columns: 130px 90px 90px 90px 90px;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .outcome-row:last-child { border-bottom: none; }
+  .outcome-name { font-size: 13px; color: var(--text); }
+  .outcome-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: right;
+    color: var(--accent2);
+  }
+  .outcome-val.dim { color: var(--muted); }
+  .outcome-header { color: var(--dim); font-size: 10px; font-family: var(--mono); letter-spacing: 0.05em; }
+
+  /* Series viz */
+  .series-game-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 80px 80px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .series-game-row.header { color: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; }
+
+  /* Info callout */
+  .callout {
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    background: rgba(79,156,249,0.05);
+    border-radius: 0 6px 6px 0;
+    margin-bottom: 16px;
+  }
+  .callout p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .callout p strong { color: var(--text); font-weight: 500; }
+
+  .callout.green {
+    border-left-color: var(--accent2);
+    background: rgba(45,224,167,0.05);
+  }
+
+  /* Source tag */
+  .source {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    margin-top: 8px;
+  }
+
+  /* Mode indicator */
+  .mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .mode-pill.single { background: rgba(79,156,249,0.1); color: var(--accent); border: 1px solid rgba(79,156,249,0.2); }
+  .mode-pill.series { background: rgba(45,224,167,0.1); color: var(--accent2); border: 1px solid rgba(45,224,167,0.2); }
+  .mode-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    .header { padding: 20px; }
+    .main { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Pitch Count Value Model</h1>
+    <p>Expected run value of plate appearances by pitches seen — single game &amp; series</p>
+  </div>
+  <span class="header-badge">2024 MLB · 4,858 starts</span>
+</div>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">ERA Parameters</div>
+      <div class="era-grid">
+        <div class="era-field">
+          <label>SP ERA</label>
+          <input type="number" id="spEra" value="4.16" min="1.00" max="9.00" step="0.01">
+        </div>
+        <div class="era-field">
+          <label>RP ERA</label>
+          <input type="number" id="rpEra" value="4.10" min="1.00" max="9.00" step="0.01">
+        </div>
+      </div>
+      <div class="callout">
+        <p>Default: <strong>SP 4.16 / RP 4.10</strong> (2024 MLB, Baseball Reference). Adjust for specific matchups or custom analysis.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Series Mode</div>
+      <div class="series-toggle" id="seriesToggle" onclick="toggleSeries()">
+        <div class="toggle-track" id="toggleTrack">
+          <div class="toggle-thumb"></div>
+        </div>
+        <span id="toggleLabel">Off — single game only</span>
+      </div>
+
+      <div id="seriesControls" style="display:none">
+        <div class="slider-group">
+          <div class="slider-row">
+            <span>Series length</span>
+            <span class="slider-val" id="seriesLenVal">5 games</span>
+          </div>
+          <input type="range" id="seriesLen" min="3" max="7" step="1" value="5" oninput="updateAll()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span>Fatigue coefficient</span>
+            <span class="slider-val" id="fatigueVal">0.0056</span>
+          </div>
+          <input type="range" id="fatigue" min="0.001" max="0.012" step="0.0005" value="0.0056" oninput="updateAll()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span>Reliever recovery scale</span>
+            <span class="slider-val" id="recoveryVal">0.80×</span>
+          </div>
+          <input type="range" id="recovery" min="0.3" max="1.0" step="0.05" value="0.8" oninput="updateAll()">
+        </div>
+        <div class="callout green">
+          <p>Fatigue coefficient from <strong>Bradbury &amp; Forman (2012)</strong>: each pitch thrown in prior game increases ERA by 0.007 next game. Scale adjusts for reliever vs. starter recovery rate.</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigation</div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="showPanel('overview',this)"><div class="nav-dot"></div>Overview</button>
+        <button class="nav-tab" onclick="showPanel('calculator',this)"><div class="nav-dot"></div>PA Calculator</button>
+        <button class="nav-tab" onclick="showPanel('matrix',this)"><div class="nav-dot"></div>Full matrix</button>
+        <button class="nav-tab" onclick="showPanel('compare',this)"><div class="nav-dot"></div>vs. outcomes</button>
+        <button class="nav-tab" onclick="showPanel('series_detail',this)"><div class="nav-dot"></div>Series detail</button>
+        <button class="nav-tab" onclick="showPanel('methodology',this)"><div class="nav-dot"></div>Methodology</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div class="panel active" id="panel-overview">
+      <div class="panel-title">Overview</div>
+      <div class="panel-sub">Expected run value generated by a plate appearance based on pitches seen and current pitcher pitch count.</div>
+
+      <div id="modePill" class="mode-pill single"><div class="mode-dot"></div><span id="modePillText">Single game mode</span></div>
+
+      <div class="metric-row" id="overviewMetrics"></div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">EXPECTED RUNS REMAINING — function of pitcher pitch count</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#4f9cf9"></div>SP runs remaining</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#2de0a7"></div>RP runs remaining</div>
+        </div>
+        <div class="chart-inner" style="height:220px"><canvas id="runsChart" role="img" aria-label="Stacked bar chart of expected runs remaining by pitch count"></canvas></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">PA DEPLETION VALUE — by pitches seen</div>
+        <div class="legend" id="paLegend"></div>
+        <div class="chart-inner" style="height:240px"><canvas id="paChart" role="img" aria-label="Line chart of PA value by pitches seen at different contexts"></canvas></div>
+      </div>
+    </div>
+
+    <!-- CALCULATOR -->
+    <div class="panel" id="panel-calculator">
+      <div class="panel-title">PA Calculator</div>
+      <div class="panel-sub">Compute the exact run value of any plate appearance given pitcher's current count and pitches seen.</div>
+
+      <div id="modePill2" class="mode-pill single"><div class="mode-dot"></div><span id="modePillText2">Single game mode</span></div>
+
+      <div class="slider-group">
+        <div class="slider-row">
+          <span>Pitcher's current pitch count</span>
+          <span class="slider-val" id="calcPitchVal">0</span>
+        </div>
+        <input type="range" id="calcPitch" min="0" max="105" step="1" value="0" oninput="updateCalc()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span>Pitches seen in this PA</span>
+          <span class="slider-val" id="calcLenVal">10</span>
+        </div>
+        <input type="range" id="calcLen" min="1" max="20" step="1" value="10" oninput="updateCalc()">
+      </div>
+
+      <div class="calc-result">
+        <div class="calc-result-grid">
+          <div>
+            <div class="calc-field-label">PA total value</div>
+            <div class="calc-field-value accent" id="calcTotal">—</div>
+            <div class="calc-field-sub">runs for batting team</div>
+          </div>
+          <div>
+            <div class="calc-field-label">Per pitch</div>
+            <div class="calc-field-value" id="calcPerPitch">—</div>
+            <div class="calc-field-sub">runs/pitch</div>
+          </div>
+          <div>
+            <div class="calc-field-label">% of a single</div>
+            <div class="calc-field-value green" id="calcVsSingle">—</div>
+            <div class="calc-field-sub">raw LW +0.47</div>
+          </div>
+          <div>
+            <div class="calc-field-label">% of a home run</div>
+            <div class="calc-field-value" id="calcVsHR">—</div>
+            <div class="calc-field-sub">raw LW +1.40</div>
+          </div>
+        </div>
+        <div class="calc-note" id="calcNote"></div>
+      </div>
+
+      <div class="chart-wrap" style="margin-top:20px">
+        <div class="chart-title">EXPECTED RUNS: before vs after this PA</div>
+        <div class="chart-inner" style="height:160px"><canvas id="calcChart" role="img" aria-label="Bar chart showing expected runs before and after PA"></canvas></div>
+      </div>
+    </div>
+
+    <!-- MATRIX -->
+    <div class="panel" id="panel-matrix">
+      <div class="panel-title">Full PA Value Matrix</div>
+      <div class="panel-sub">Run value of a PA of length L (rows) when pitcher is at count N (cols). Greener cells = more valuable to batting team.</div>
+      <div id="modePill3" class="mode-pill single"><div class="mode-dot"></div><span id="modePillText3">Single game mode</span></div>
+      <div class="pa-table-wrap">
+        <table id="matrixTable"></table>
+      </div>
+    </div>
+
+    <!-- COMPARE -->
+    <div class="panel" id="panel-compare">
+      <div class="panel-title">vs. Outcomes</div>
+      <div class="panel-sub">Comparing PA depletion value to raw linear weight run values (true run values, not wOBA-scaled).</div>
+      <div id="modePill4" class="mode-pill single"><div class="mode-dot"></div><span id="modePillText4">Single game mode</span></div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">DEPLETION VALUE vs LINEAR WEIGHTS</div>
+        <div class="chart-inner" style="height:280px"><canvas id="cmpChart" role="img" aria-label="Bar chart comparing PA depletion values to hit outcomes"></canvas></div>
+      </div>
+
+      <div class="outcome-row" style="padding-bottom:8px">
+        <div class="outcome-name outcome-header">Outcome</div>
+        <div class="outcome-val outcome-header">Raw LW</div>
+        <div class="outcome-val outcome-header">P to match<br>(leadoff, single)</div>
+        <div class="outcome-val outcome-header">P to match<br>(leadoff, series)</div>
+        <div class="outcome-val outcome-header">Series mult.</div>
+      </div>
+      <div id="outcomeRows"></div>
+    </div>
+
+    <!-- SERIES DETAIL -->
+    <div class="panel" id="panel-series_detail">
+      <div class="panel-title">Series Detail</div>
+      <div class="panel-sub">Game-by-game breakdown of bullpen fatigue accumulation across a series when one team forces early starter exits.</div>
+
+      <div class="callout">
+        <p>Scenario: count-working team forces starter exit at pitch <strong id="serExitShort">70</strong> each game. Opponent's batters don't work counts, allowing starter to reach pitch <strong id="serExitNormal">90</strong>. Bullpen fatigue accumulates on both sides.</p>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-row">
+          <span>Count-working exit pitch</span>
+          <span class="slider-val" id="serShortVal">70</span>
+        </div>
+        <input type="range" id="serShort" min="50" max="90" step="5" value="70" oninput="updateSeriesDetail()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span>Normal exit pitch</span>
+          <span class="slider-val" id="serNormalVal">90</span>
+        </div>
+        <input type="range" id="serNormal" min="70" max="105" step="5" value="90" oninput="updateSeriesDetail()">
+      </div>
+
+      <div id="seriesRows" style="margin-bottom:20px"></div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">RP ERA BY GAME — fatigue cascade</div>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#f96b6b"></div>Fatigued bullpen (count-working team faces)</div>
+          <div class="legend-item"><div class="legend-dash" style="background:#4f9cf9"></div>Rested bullpen (normal team faces)</div>
+        </div>
+        <div class="chart-inner" style="height:200px"><canvas id="seriesChart" role="img" aria-label="Line chart of RP ERA across series games"></canvas></div>
+      </div>
+
+      <div class="metric-row" id="seriesSummary"></div>
+    </div>
+
+    <!-- METHODOLOGY -->
+    <div class="panel" id="panel-methodology">
+      <div class="panel-title">Methodology</div>
+      <div class="panel-sub">How both models are computed and what data underlies them.</div>
+
+      <div class="callout">
+        <p><strong>Data source:</strong> 4,858 starting pitcher game logs from Baseball Savant, 2024 MLB regular season. SP ERA 4.16, RP ERA 4.10 from Baseball Reference. Linear weights from FanGraphs Guts! (2024).</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <div class="chart-wrap">
+          <div class="chart-title">MODEL 1 — SINGLE-GAME EXPECTED RUNS</div>
+          <p style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+            At each pitch count N, compute expected innings remaining from the starter using the survival curve (probability starter is still in at pitch n, summed forward and divided by 16.4 pitches/inning). Reliever innings = total remaining innings minus starter innings. Expected runs = SP_IP × (SP_ERA/9) + RP_IP × (RP_ERA/9). PA value = reduction in expected runs from pitch S to pitch S+L.
+          </p>
+          <div style="background:var(--surface2);border-radius:6px;padding:12px 14px;font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9">
+            SP_IP_rem(N) = Σ survival(n)/survival(N) for n = N+1..115, ÷ 16.4<br>
+            RP_IP_rem(N) = (9 − N/16.4) − SP_IP_rem(N)<br>
+            E[runs](N) = SP_IP_rem × SP_ERA/9 + RP_IP_rem × RP_ERA/9<br>
+            PA_value(S, L) = E[runs](S) − E[runs](S+L)
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <div class="chart-title">MODEL 2 — SERIES FATIGUE MULTIPLIER</div>
+          <p style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+            From Bradbury &amp; Forman (2012, J Strength Cond Res 26(5):1181–7): each pitch thrown in the preceding game increases ERA by 0.007 in the next game. Applied to relievers with a 0.8 scaling factor. Extra RP pitches burned today degrade RP ERA for the remaining series games, applied to ~3.8 RP innings/game × (series_length − 1) games.
+          </p>
+          <div style="background:var(--surface2);border-radius:6px;padding:12px 14px;font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9">
+            extra_rp_pitches = ΔPitcher_count × 1.0 (approx)<br>
+            ERA_penalty = extra_rp_pitches × 0.007 × recovery_scale<br>
+            carry_over_runs = ERA_penalty × rp_innings_remaining_series / 9<br>
+            series_multiplier = (base_value + carry_over) / base_value
+          </div>
+          <p class="source">Source: Bradbury JC, Forman SL. The impact of pitch counts and days of rest on performance among major-league baseball pitchers. J Strength Cond Res. 2012;26(5):1181-1187.</p>
+        </div>
+
+        <div class="chart-wrap">
+          <div class="chart-title">RAW vs WOBA-SCALED LINEAR WEIGHTS</div>
+          <p style="font-size:12px;color:var(--muted);line-height:1.8">
+            FanGraphs publishes wOBA-scaled weights (single = 0.882, HR = 2.050) which are multiplied by ~1.24 to align wOBA with OBP scale. These are NOT true run values. Raw linear weights (single = 0.47, HR = 1.40) represent the actual expected run change per outcome and are the correct basis for comparing depletion value.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── SURVIVAL DATA (from 4,858 real 2024 MLB starts) ──────────────────────────
+const SURV = {
+  0:1,1:1,2:1,3:0.999794,4:0.999794,5:0.999588,6:0.999177,7:0.998765,
+  8:0.998353,9:0.998147,10:0.997736,11:0.997324,12:0.996706,13:0.995471,
+  14:0.994442,15:0.993619,16:0.992178,17:0.991149,18:0.990943,19:0.990325,
+  20:0.989708,21:0.988267,22:0.987649,23:0.986620,24:0.984562,25:0.983532,
+  26:0.982915,27:0.982297,28:0.980856,29:0.978386,30:0.977563,31:0.976122,
+  32:0.974887,33:0.973858,34:0.973034,35:0.972005,36:0.971387,37:0.969535,
+  38:0.968094,39:0.967065,40:0.965624,41:0.964389,42:0.964389,43:0.963359,
+  44:0.961301,45:0.960683,46:0.959654,47:0.958419,48:0.957802,49:0.956978,
+  50:0.955331,51:0.953890,52:0.952655,53:0.950391,54:0.947509,55:0.945862,
+  56:0.943392,57:0.942363,58:0.939275,59:0.937011,60:0.932483,61:0.927954,
+  62:0.925278,63:0.920749,64:0.917044,65:0.913133,66:0.907575,67:0.901400,
+  68:0.895636,69:0.888843,70:0.883285,71:0.875669,72:0.868464,73:0.856525,
+  74:0.844792,75:0.833882,76:0.823178,77:0.809798,78:0.796212,79:0.777275,
+  80:0.758131,81:0.741046,82:0.724784,83:0.704199,84:0.677851,85:0.655002,
+  86:0.625772,87:0.601688,88:0.568753,89:0.533141,90:0.496501,91:0.455126,
+  92:0.415191,93:0.377933,94:0.339646,95:0.299918,96:0.260189,97:0.224990,
+  98:0.187732,99:0.156855,100:0.130506,101:0.103335,102:0.085220,103:0.067723,
+  104:0.049197,105:0.038082,106:0.028407,107:0.019555,108:0.013380,109:0.010292,
+  110:0.006793,111:0.005352,112:0.003705,113:0.002470,114:0.001853,115:0.000823
+};
+const SKEYS = Object.keys(SURV).map(Number).sort((a,b)=>a-b);
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let spEra = 4.16, rpEra = 4.10;
+let seriesMode = false;
+let seriesLen = 5;
+let fatigueCoeff = 0.0056;
+let recoveryScale = 0.80;
+const PPI = 16.4;
+
+// ── CORE MATH ────────────────────────────────────────────────────────────────
+function getSurv(n) {
+  for (let i = SKEYS.length - 1; i >= 0; i--)
+    if (SKEYS[i] <= n) return SURV[SKEYS[i]];
+  return 0;
+}
+
+function spIPrem(n) {
+  const sn = getSurv(n);
+  if (sn < 0.0001) return 0;
+  let sum = 0;
+  for (let i = n + 1; i <= 115; i++) sum += getSurv(i) / sn;
+  return sum / PPI;
+}
+
+function eruns(n) {
+  const spIP = spIPrem(n);
+  const totalRem = Math.max(0, 9 - n / PPI);
+  const rpIP = Math.max(0, totalRem - spIP);
+  return spIP * (spEra / 9) + rpIP * (rpEra / 9);
+}
+
+function paValueSingle(s, l) {
+  return eruns(s) - eruns(s + l);
+}
+
+function rpBullpenPitches(exitPitch) {
+  const spIP = spIPrem(exitPitch);
+  const totalRem = Math.max(0, 9 - exitPitch / PPI);
+  const rpIP = Math.max(0, totalRem - spIP);
+  return rpIP * PPI;
+}
+
+function seriesCarryOver(pa_length) {
+  // Extra RP pitches per extra starter pitch ≈ 1
+  // Fatigue those pitches carry over games 2..seriesLen
+  const rpInningsRemainingSeries = (seriesLen - 1) * 3.8;
+  const eraPerExtraPitch = fatigueCoeff * recoveryScale;
+  const carryPerPitch = eraPerExtraPitch * (rpInningsRemainingSeries / 9);
+  return carryPerPitch * pa_length;
+}
+
+function paValue(s, l) {
+  const sg = paValueSingle(s, l);
+  if (!seriesMode) return sg;
+  return sg + seriesCarryOver(l);
+}
+
+function seriesMultiplier() {
+  if (!seriesMode) return 1;
+  const base = paValueSingle(0, 10);
+  const total = paValue(0, 10);
+  return total / base;
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────────────────
+const isDark = true;
+const gc = 'rgba(255,255,255,0.06)';
+const tc = '#555a68';
+let charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function makeRunsChart() {
+  destroyChart('runs');
+  const pitches = [], spR = [], rpR = [];
+  for (let n = 0; n <= 110; n += 5) {
+    pitches.push(n);
+    const spIP = spIPrem(n);
+    const totalRem = Math.max(0, 9 - n / PPI);
+    const rpIP = Math.max(0, totalRem - spIP);
+    spR.push(+(spIP * spEra / 9).toFixed(3));
+    rpR.push(+(rpIP * rpEra / 9).toFixed(3));
+  }
+  charts['runs'] = new Chart(document.getElementById('runsChart'), {
+    type: 'bar',
+    data: { labels: pitches, datasets: [
+      { label: 'SP runs', data: spR, backgroundColor: '#4f9cf9', stack: 'a' },
+      { label: 'RP runs', data: rpR, backgroundColor: '#2de0a7', stack: 'a' }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}` }}},
+      scales: {
+        x: { stacked: true, ticks: { color: tc }, grid: { color: gc } },
+        y: { stacked: true, ticks: { color: tc }, grid: { color: gc },
+          title: { display: true, text: 'expected runs remaining', color: tc, font: { size: 11 } }}
+      }
+    }
+  });
+}
+
+function makePAChart() {
+  destroyChart('pa');
+  const ctxs = [0, 30, 65, 75, 85, 95];
+  const clrs = ['#4f9cf9', '#7ab8ff', '#2de0a7', '#1D9E75', '#f5a623', '#f96b6b'];
+  const lens = [1,2,3,4,5,6,7,8,9,10,12,15];
+  const ds = ctxs.map((c, i) => ({
+    label: `P@${c}`,
+    data: lens.map(l => +paValue(c, l).toFixed(4)),
+    borderColor: clrs[i], borderWidth: c === 0 ? 2.5 : 1.5,
+    pointRadius: c === 0 ? 3 : 2, tension: 0.2, fill: false
+  }));
+  ds.push({ label: 'Single +0.47', data: lens.map(() => 0.47), borderColor: '#888', borderWidth: 1, borderDash: [5, 3], pointRadius: 0, fill: false });
+  ds.push({ label: 'HR +1.40', data: lens.map(() => 1.40), borderColor: '#555', borderWidth: 1, borderDash: [3, 3], pointRadius: 0, fill: false });
+
+  const legend = document.getElementById('paLegend');
+  legend.innerHTML = ctxs.map((c, i) =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${clrs[i]}"></div>P@${c}</div>`
+  ).join('') +
+  `<div class="legend-item"><div class="legend-dash" style="background:#888"></div>Single</div>
+   <div class="legend-item"><div class="legend-dash" style="background:#555"></div>HR</div>`;
+
+  charts['pa'] = new Chart(document.getElementById('paChart'), {
+    type: 'line',
+    data: { labels: lens, datasets: ds },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: +${ctx.parsed.y.toFixed(4)} runs` }}},
+      scales: {
+        x: { title: { display: true, text: 'pitches seen', color: tc, font: { size: 11 } }, ticks: { color: tc }, grid: { color: gc } },
+        y: { title: { display: true, text: 'run value', color: tc, font: { size: 11 } }, ticks: { color: tc, callback: v => v >= 0 ? '+' + v.toFixed(2) : v.toFixed(2) }, grid: { color: gc }, min: 0 }
+      }
+    }
+  });
+}
+
+function makeCalcChart(s, l) {
+  destroyChart('calc');
+  const before = eruns(s);
+  const after = eruns(s + l);
+  const carry = seriesMode ? seriesCarryOver(l) : 0;
+  charts['calc'] = new Chart(document.getElementById('calcChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Before PA', 'After PA', seriesMode ? 'After PA (series)' : ''],
+      datasets: [{ data: [before, after, seriesMode ? Math.max(0, after - carry) : null], backgroundColor: ['#4f9cf9', '#2de0a7', '#f5a623'], borderRadius: 4, barPercentage: 0.5 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(4)} exp runs` }}},
+      scales: { x: { ticks: { color: tc }, grid: { display: false } }, y: { ticks: { color: tc, callback: v => v.toFixed(2) }, grid: { color: gc }, title: { display: true, text: 'expected runs', color: tc, font: { size: 11 } } } }
+    }
+  });
+}
+
+function makeCmpChart() {
+  destroyChart('cmp');
+  // Find pitches-to-match for each outcome using real paValue(0,l)
+  const targets = [0.30, 0.47, 0.75, 1.02, 1.40];
+  const matchPitches = targets.map(t => {
+    for (let l = 1; l <= 200; l++) if (paValue(0, l) >= t) return l;
+    return null;
+  });
+  const deplLengths = [3, 8, 10, 13, 20, 36];
+  const deplLabels = deplLengths.map(l => `${l}p PA`);
+  const labs = [...deplLabels, 'Walk', 'Single', 'Double', 'Triple', 'HR'];
+  const depl = [...deplLengths.map(l => paValue(0, l)), null,null,null,null,null];
+  const lw   = [null,null,null,null,null,null, 0.30, 0.47, 0.75, 1.02, 1.40];
+  charts['cmp'] = new Chart(document.getElementById('cmpChart'), {
+    type: 'bar',
+    data: { labels: labs, datasets: [
+      { label: 'Depletion value', data: depl, backgroundColor: '#4f9cf9', borderRadius: 3, barPercentage: 0.6 },
+      { label: 'Raw linear weight', data: lw, backgroundColor: '#2de0a7', borderRadius: 3, barPercentage: 0.6 }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: +${ctx.parsed.y?.toFixed(3)} runs` }}},
+      scales: { x: { ticks: { color: tc, font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: tc }, grid: { color: gc }, title: { display: true, text: 'run value', color: tc, font: { size: 11 } }, min: 0 } }
+    }
+  });
+}
+
+let seriesLineChart = null;
+function makeSeriesChart(exitShort, exitNormal) {
+  destroyChart('series');
+  const games = Array.from({ length: seriesLen }, (_, i) => `G${i + 1}`);
+  const fatigued = [], rested = [];
+  let era_f = rpEra, era_r = rpEra;
+  const extraPitches = rpBullpenPitches(exitShort) - rpBullpenPitches(exitNormal);
+  for (let g = 0; g < seriesLen; g++) {
+    fatigued.push(+era_f.toFixed(4));
+    rested.push(+era_r.toFixed(4));
+    const penalty = extraPitches * fatigueCoeff * recoveryScale;
+    era_f = rpEra + penalty;
+    era_r = rpEra;
+  }
+  charts['series'] = new Chart(document.getElementById('seriesChart'), {
+    type: 'line',
+    data: { labels: games, datasets: [
+      { label: 'Fatigued RP ERA', data: fatigued, borderColor: '#f96b6b', borderWidth: 2, pointRadius: 4, fill: false, tension: 0.1 },
+      { label: 'Rested RP ERA', data: rested, borderColor: '#4f9cf9', borderWidth: 2, pointRadius: 4, borderDash: [5, 3], fill: false }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}` }}},
+      scales: {
+        x: { ticks: { color: tc }, grid: { color: gc } },
+        y: { min: rpEra - 0.01, max: rpEra + 0.08, ticks: { color: tc, callback: v => v.toFixed(3) }, grid: { color: gc },
+          title: { display: true, text: 'opponent RP ERA', color: tc, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ── UI UPDATES ────────────────────────────────────────────────────────────────
+function fmt(v, plus = true) {
+  const s = Math.abs(v) < 0.00005 ? '0.0000' : v.toFixed(4);
+  return (plus && v >= 0 ? '+' : '') + s;
+}
+
+function updateModePills() {
+  const cls = seriesMode ? 'series' : 'single';
+  const txt = seriesMode ? `Series mode · ${seriesLen}-game · ${seriesMultiplier().toFixed(2)}× multiplier` : 'Single game mode';
+  ['modePill','modePill2','modePill3','modePill4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `mode-pill ${cls}`;
+    el.innerHTML = `<div class="mode-dot"></div><span>${txt}</span>`;
+  });
+}
+
+function updateOverviewMetrics() {
+  const mult = seriesMultiplier();
+  const ppitch = (0.039 * mult).toFixed(4);
+  const pa10 = paValue(0, 10).toFixed(3);
+  const pa10_85 = paValue(85, 10).toFixed(3);
+  // pitches to equal HR
+  let pitchesToHR = '—';
+  for (let l = 1; l <= 100; l++) {
+    if (paValue(0, l) >= 1.40) { pitchesToHR = l; break; }
+  }
+  document.getElementById('overviewMetrics').innerHTML = `
+    <div class="metric"><div class="metric-label">value per pitch</div><div class="metric-value accent">${ppitch}</div><div class="metric-sub">runs/pitch, any context</div></div>
+    <div class="metric"><div class="metric-label">10p PA from pitch 0</div><div class="metric-value green">${pa10}</div><div class="metric-sub">runs for batting team</div></div>
+    <div class="metric"><div class="metric-label">10p PA at P@85</div><div class="metric-value">${paValue(85,10).toFixed(3)}</div><div class="metric-sub">highest-value zone</div></div>
+    <div class="metric"><div class="metric-label">pitches to equal HR</div><div class="metric-value">${pitchesToHR}</div><div class="metric-sub">leadoff batter (P@0), raw LW +1.40</div></div>
+    ${seriesMode ? `<div class="metric"><div class="metric-label">series multiplier</div><div class="metric-value green">${mult.toFixed(2)}×</div><div class="metric-sub">carry-over from RP fatigue</div></div>` : ''}
+  `;
+}
+
+function updateCalc() {
+  const s = parseInt(document.getElementById('calcPitch').value);
+  const l = parseInt(document.getElementById('calcLen').value);
+  document.getElementById('calcPitchVal').textContent = s;
+  document.getElementById('calcLenVal').textContent = l;
+  const v = paValue(s, l);
+  const vpp = v / l;
+  document.getElementById('calcTotal').textContent = fmt(v);
+  document.getElementById('calcPerPitch').textContent = fmt(vpp);
+  document.getElementById('calcVsSingle').textContent = (v / 0.47 * 100).toFixed(1) + '%';
+  document.getElementById('calcVsHR').textContent = (v / 1.40 * 100).toFixed(1) + '%';
+  const team = v * 9;
+  const seas = team * 162;
+  let note = `E[runs] before: ${eruns(s).toFixed(3)} → after: ${eruns(s+l).toFixed(3)} · Team ×9: ${fmt(team)} runs/game · Season: ${fmt(seas,false)} runs (~${(seas/10).toFixed(1)} wins)`;
+  if (seriesMode) note += ` · Series carry-over: +${seriesCarryOver(l).toFixed(4)} runs`;
+  document.getElementById('calcNote').textContent = note;
+  makeCalcChart(s, l);
+}
+
+function updateMatrix() {
+  const contexts = [0, 15, 30, 50, 65, 75, 85, 90, 95];
+  const lengths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20];
+  let html = `<tr><th class="left">PA length</th>${contexts.map(c => `<th>P@${c}</th>`).join('')}</tr>`;
+  for (const l of lengths) {
+    const vals = contexts.map(c => paValue(c, l));
+    const maxVal = Math.max(...vals);
+    html += `<tr><td class="left">${l}p</td>` + vals.map(v => {
+      const ratio = maxVal > 0 ? v / maxVal : 0;
+      const hclass = ratio > 0.85 ? 'h5' : ratio > 0.65 ? 'h4' : ratio > 0.45 ? 'h3' : ratio > 0.25 ? 'h2' : ratio > 0.05 ? 'h1' : '';
+      const cls = hclass ? `class="${hclass} cell-pos"` : v > 0.1 ? 'class="cell-pos"' : v < 0 ? 'class="cell-dim"' : '';
+      return `<td ${cls}>${fmt(v)}</td>`;
+    }).join('') + '</tr>';
+  }
+  document.getElementById('matrixTable').innerHTML = html;
+}
+
+function updateOutcomeRows() {
+  const lw = [
+    { name: 'Walk',     v: 0.30 },
+    { name: 'Single',   v: 0.47 },
+    { name: 'Double',   v: 0.75 },
+    { name: 'Triple',   v: 1.02 },
+    { name: 'Home run', v: 1.40 }
+  ];
+  let html = '';
+  for (const { name, v } of lw) {
+    let pSingle = '—', pSeries = '—';
+    for (let l = 1; l <= 200; l++) {
+      const sgVal = paValueSingle(0, l);
+      const serVal = paValue(0, l);
+      if (sgVal >= v && pSingle === '—') pSingle = l + 'p';
+      if (serVal >= v && pSeries === '—') pSeries = l + 'p';
+      if (pSingle !== '—' && pSeries !== '—') break;
+    }
+    html += `<div class="outcome-row">
+      <div class="outcome-name">${name}</div>
+      <div class="outcome-val">+${v.toFixed(2)}</div>
+      <div class="outcome-val dim">${pSingle}</div>
+      <div class="outcome-val">${seriesMode ? pSeries : '—'}</div>
+      <div class="outcome-val">${seriesMode ? seriesMultiplier().toFixed(2) + '×' : '—'}</div>
+    </div>`;
+  }
+  document.getElementById('outcomeRows').innerHTML = html;
+}
+
+function updateSeriesDetail() {
+  const exitShort = parseInt(document.getElementById('serShort').value);
+  const exitNormal = parseInt(document.getElementById('serNormal').value);
+  document.getElementById('serShortVal').textContent = exitShort;
+  document.getElementById('serNormalVal').textContent = exitNormal;
+  document.getElementById('serExitShort').textContent = exitShort;
+  document.getElementById('serExitNormal').textContent = exitNormal;
+
+  const rpShort = rpBullpenPitches(exitShort);
+  const rpNormal = rpBullpenPitches(exitNormal);
+  const extraRP = rpShort - rpNormal;
+  const penalty = extraRP * fatigueCoeff * recoveryScale;
+
+  let html = `<div class="series-game-row header">
+    <div>Game</div><div>Exit: short vs normal</div>
+    <div style="text-align:right">RP ERA (short)</div>
+    <div style="text-align:right">RP ERA (normal)</div>
+    <div style="text-align:right">ERA diff</div>
+  </div>`;
+
+  let era_f = rpEra;
+  let totalRunsShort = 0, totalRunsNormal = 0;
+  for (let g = 1; g <= seriesLen; g++) {
+    const era_r = rpEra;
+    const diff = era_f - era_r;
+    const runsShort = eruns(exitShort);
+    const runsNormal = eruns(exitNormal);
+    totalRunsShort += runsShort;
+    totalRunsNormal += runsNormal;
+    const diffColor = diff > 0.01 ? 'color:var(--accent2)' : 'color:var(--dim)';
+    html += `<div class="series-game-row">
+      <div style="font-family:var(--mono);color:var(--muted)">G${g}</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted)">${exitShort} vs ${exitNormal}</div>
+      <div style="text-align:right;font-family:var(--mono);color:var(--accent)">${era_f.toFixed(3)}</div>
+      <div style="text-align:right;font-family:var(--mono);color:var(--muted)">${era_r.toFixed(3)}</div>
+      <div style="text-align:right;font-family:var(--mono);${diffColor}">${diff > 0 ? '+' : ''}${diff.toFixed(3)}</div>
+    </div>`;
+    era_f = rpEra + penalty;
+  }
+  document.getElementById('seriesRows').innerHTML = html;
+
+  const seriesAdv = totalRunsNormal - totalRunsShort;
+  document.getElementById('seriesSummary').innerHTML = `
+    <div class="metric"><div class="metric-label">extra RP pitches/game</div><div class="metric-value accent">${extraRP.toFixed(1)}</div><div class="metric-sub">when starter exits at ${exitShort} vs ${exitNormal}</div></div>
+    <div class="metric"><div class="metric-label">ERA penalty next game</div><div class="metric-value">${penalty.toFixed(4)}</div><div class="metric-sub">on opponent RP</div></div>
+    <div class="metric"><div class="metric-label">series run advantage</div><div class="metric-value green">${seriesAdv >= 0 ? '+' : ''}${seriesAdv.toFixed(3)}</div><div class="metric-sub">runs over ${seriesLen} games</div></div>
+  `;
+
+  makeSeriesChart(exitShort, exitNormal);
+}
+
+function updateAll() {
+  spEra = parseFloat(document.getElementById('spEra').value) || 4.16;
+  rpEra = parseFloat(document.getElementById('rpEra').value) || 4.10;
+  seriesLen = parseInt(document.getElementById('seriesLen').value) || 5;
+  fatigueCoeff = parseFloat(document.getElementById('fatigue').value) || 0.0056;
+  recoveryScale = parseFloat(document.getElementById('recovery').value) || 0.8;
+
+  document.getElementById('seriesLenVal').textContent = seriesLen + ' games';
+  document.getElementById('fatigueVal').textContent = fatigueCoeff.toFixed(4);
+  document.getElementById('recoveryVal').textContent = recoveryScale.toFixed(2) + '×';
+
+  updateModePills();
+  updateOverviewMetrics();
+  makeRunsChart();
+  makePAChart();
+  updateCalc();
+  updateMatrix();
+  updateOutcomeRows();
+
+  const exitShort = document.getElementById('serShort') ? parseInt(document.getElementById('serShort').value) : 70;
+  const exitNormal = document.getElementById('serNormal') ? parseInt(document.getElementById('serNormal').value) : 90;
+  updateSeriesDetail();
+  makeCmpChart();
+}
+
+function toggleSeries() {
+  seriesMode = !seriesMode;
+  const track = document.getElementById('toggleTrack');
+  const label = document.getElementById('toggleLabel');
+  const controls = document.getElementById('seriesControls');
+  const toggle = document.getElementById('seriesToggle');
+  track.className = 'toggle-track' + (seriesMode ? ' on' : '');
+  toggle.className = 'series-toggle' + (seriesMode ? ' on' : '');
+  label.textContent = seriesMode ? 'On — series carry-over active' : 'Off — single game only';
+  controls.style.display = seriesMode ? 'block' : 'none';
+  updateAll();
+}
+
+function showPanel(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+  // Re-render charts for newly visible panel
+  setTimeout(updateAll, 50);
+}
+
+// ERA input listeners
+document.getElementById('spEra').addEventListener('input', updateAll);
+document.getElementById('rpEra').addEventListener('input', updateAll);
+document.getElementById('serShort').addEventListener('input', updateSeriesDetail);
+document.getElementById('serNormal').addEventListener('input', updateSeriesDetail);
+
+// Init
+updateAll();
+</script>
+</body>
+</html>
